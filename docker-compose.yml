@@ -1,0 +1,66 @@
+version: "3"
+
+services:
+  zookeeper:
+    image: wurstmeister/zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    container_name: kafka
+    image: wurstmeister/kafka:latest
+    ports:
+      - "9092:9092"
+    environment:
+      # KAFKA_ADVERTISED_HOST_NAME: 127.0.0.1
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CREATE_TOPICS: "SpringTopic:1:0"
+    depends_on:
+      - zookeeper
+  kafdrop:
+    container_name: kafdrop
+    image: obsidiandynamics/kafdrop:latest
+    ports:
+      - 9000:9000
+    environment:
+      - KAFKA_BROKERCONNECT=kafka:9092
+      - "JVM_OPTS=-Xms128m -Xmx128m"
+      - "SERVER_SERVLET_CONTEXTPATH=/"
+    depends_on:
+      - kafka
+  logstash:
+    container_name: logstash
+    image: docker.elastic.co/logstash/logstash:7.16.2
+    ports:
+      - 5044:5044
+      - 9600:9600
+    volumes:
+      - ./logstash/config/:/usr/share/logstash/config/
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - TZ=Asia/Seoul
+    depends_on:
+      - elasticsearch
+      - kafka
+  elasticsearch:
+    container_name: elasticsearch
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.2
+    ports:
+      - 9200:9200
+      - 9300:9300
+    volumes:
+      - ./es1/data:/usr/share/elasticsearch/data
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - TZ=Asia/Seoul
+  kibana:
+    container_name: kibana
+    image: docker.elastic.co/kibana/kibana:7.16.2
+    ports:
+      - 5601:5601
+    environment:
+      ELASTICSERCH_UTL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
